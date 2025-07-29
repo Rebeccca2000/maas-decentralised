@@ -1,0 +1,337 @@
+# Decentralized Mobility-as-a-Service (MaaS) Platform
+
+A blockchain-based decentralized Mobility-as-a-Service platform that uses agent-based modeling, smart contracts, and NFT tokenization to create a peer-to-peer mobility marketplace.
+
+## Overview
+
+This project implements a decentralized MaaS system where:
+- **Commuters** can request mobility services through blockchain transactions
+- **Providers** offer services (cars, bikes, buses, etc.) and receive payments via smart contracts
+- **Services** are tokenized as NFTs for trading and ownership
+- **Pricing** is managed through Automated Market Makers (AMM) with time-sensitive algorithms
+- **Multi-modal journeys** are coordinated through bundle mechanisms
+
+The system combines agent-based modeling (ABM) for realistic behavioral simulation with blockchain technology for trustless, decentralized operations.
+
+## Key Features
+
+### 🚗 **Agent-Based Modeling**
+- Realistic commuter and provider behavior simulation
+- Dynamic decision-making based on income, age, preferences, and accessibility needs
+- Multi-modal transport options (walking, cycling, cars, public transport)
+
+### ⛓️ **Blockchain Integration**
+- Smart contracts for service requests, auctions, and payments
+- NFT tokenization of mobility services for trading
+- Decentralized registry of commuters and providers
+- Automated settlement and dispute resolution
+
+### 💰 **Advanced Pricing Mechanisms**
+- Automated Market Maker (AMM) for dynamic pricing
+- Time-sensitive pricing that adjusts based on service demand
+- Liquidity provision incentives for providers
+
+### 🔗 **Service Bundling**
+- Multi-modal journey coordination
+- Off-chain bundle composition with blockchain settlement
+- Optimized route planning across multiple providers
+
+### 📊 **Analytics & Monitoring**
+- Real-time performance metrics
+- Mode share analysis
+- Equity and accessibility scoring
+- Provider revenue tracking
+
+## Prerequisites
+
+### System Requirements
+- **Node.js** (v16 or higher)
+- **Python** (3.8 or higher)
+- **npm** or **yarn**
+- **Git**
+
+### Dependencies
+- **Hardhat** - Ethereum development environment
+- **Mesa** - Agent-based modeling framework
+- **Web3.py** - Python Ethereum library
+- **OpenZeppelin** - Smart contract library
+
+## Installation
+
+### 1. Clone the Repository
+```bash
+git clone <your-repository-url>
+cd decentralized-maas
+```
+
+### 2. Install Node.js Dependencies
+```bash
+npm install
+```
+
+### 3. Set Up Python Environment
+```bash
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+# On Windows:
+venv\Scripts\activate
+# On macOS/Linux:
+source venv/bin/activate
+
+# Install Python dependencies
+pip install mesa pandas numpy matplotlib web3 requests python-dotenv
+```
+
+### 4. Configure Environment
+Create a `.env` file in the root directory:
+```env
+PRIVATE_KEY=your_private_key_here
+INFURA_API_KEY=your_infura_api_key_here
+```
+
+### 5. Compile Smart Contracts
+```bash
+npx hardhat compile
+```
+
+### 6. Deploy Smart Contracts
+```bash
+# Start local Hardhat network
+npx hardhat node
+
+# In a new terminal, deploy contracts
+npx hardhat run scripts/deploy.js --network localhost
+```
+
+This will create a `deployment-info.json` file with contract addresses.
+
+## Usage
+
+### Running the Decentralized MaaS Simulation
+
+#### Basic Usage
+```bash
+cd abm/agents
+python run_decentralized_model.py
+```
+
+#### With Custom Parameters
+```bash
+python run_decentralized_model.py --commuters 50 --steps 200 --market hybrid --amm
+```
+
+#### Debug Mode (Fewer Agents)
+```bash
+python run_decentralized_model.py --debug
+```
+
+#### Available Options
+- `--commuters N`: Number of commuter agents (default: 20)
+- `--steps N`: Number of simulation steps (default: 100)
+- `--market TYPE`: Market type (`centralized`, `decentralized`, `hybrid`)
+- `--amm`: Enable Automated Market Maker
+- `--config FILE`: Path to configuration JSON file
+- `--output DIR`: Output directory for results
+- `--debug`: Run with minimal agents for testing
+
+### Testing the Blockchain Integration
+
+#### Run Integration Tests
+```bash
+cd abm/utils
+python blockchain_integration_test.py
+```
+
+#### Test Complete MaaS Flow
+```bash
+npx hardhat run scripts/test-maas-flow.js --network localhost
+```
+
+### Configuration Files
+
+#### Blockchain Configuration (`blockchain_config.json`)
+```json
+{
+  "rpc_url": "http://127.0.0.1:8545",
+  "chain_id": 31337,
+  "deployment_info": "deployment-info.json",
+  "max_batch_size": 10,
+  "tx_confirmation_blocks": 1,
+  "gas_price_strategy": "medium"
+}
+```
+
+#### Simulation Configuration (Optional)
+```json
+{
+  "num_commuters": 50,
+  "grid_width": 25,
+  "grid_height": 25,
+  "market_type": "hybrid",
+  "enable_amm": true,
+  "uber_like1_capacity": 50,
+  "bike_share1_capacity": 100
+}
+```
+
+## Project Structure
+
+```
+decentralized-maas/
+├── contracts/                 # Smart contracts
+│   ├── MaaSRegistry.sol      # User/provider registry
+│   ├── MaaSRequest.sol       # Service request management
+│   ├── MaaSAuction.sol       # Auction mechanism
+│   ├── MaaSNFT.sol          # NFT tokenization
+│   ├── MaaSMarket.sol       # NFT marketplace
+│   └── MaaSFacade.sol       # Main interface
+├── scripts/                   # Deployment scripts
+│   ├── deploy.js            # Contract deployment
+│   └── test-maas-flow.js    # End-to-end testing
+├── abm/                      # Agent-based model
+│   ├── agents/              # Agent implementations
+│   │   ├── decentralized_commuter.py
+│   │   ├── decentralized_provider.py
+│   │   ├── decentralized_abm_model.py
+│   │   ├── nft_marketplace.py
+│   │   ├── bundle_coordinator.py
+│   │   └── run_decentralized_model.py
+│   └── utils/               # Utilities
+│       ├── blockchain_interface.py
+│       └── blockchain_integration_test.py
+├── artifacts/               # Compiled contracts
+├── deployment-info.json     # Contract addresses
+├── package.json            # Node.js dependencies
+├── hardhat.config.js       # Hardhat configuration
+└── README.md              # This file
+```
+
+## Key Components
+
+### Smart Contracts
+- **MaaSRegistry**: Manages commuter and provider registrations
+- **MaaSRequest**: Handles service requests and matching
+- **MaaSAuction**: Implements auction-based service selection
+- **MaaSNFT**: Tokenizes completed services as tradeable NFTs
+- **MaaSMarket**: Provides NFT marketplace functionality
+- **MaaSFacade**: Unified interface for all operations
+
+### Agent-Based Model
+- **DecentralizedCommuter**: Models user behavior and preferences
+- **DecentralizedProvider**: Models service provider behavior
+- **BundleCoordinator**: Manages multi-modal journey planning
+- **NFTMarketplace**: Handles service tokenization and trading
+- **MobilityAMM**: Implements automated market making for pricing
+
+### Blockchain Interface
+- **BlockchainInterface**: Python wrapper for smart contract interactions
+- Handles account creation, transaction batching, and caching
+- Provides async processing for improved performance
+
+## Example Output
+
+When running the simulation, you'll see output like:
+```
+Starting decentralized MaaS simulation...
+Connected to blockchain: True
+Model run completed in 40.07 seconds
+Simulation complete!
+- Completed trips: 197
+- Active NFT listings: 0
+- Total transactions: 197
+- Average NFT price: 0.00
+Blockchain Statistics:
+- Transactions submitted: 197
+- Transactions confirmed: 197
+- Cache hits: 0
+- Cache misses: 0
+```
+
+## Customization
+
+### Adding New Transport Modes
+1. Extend the `DecentralizedProvider` class
+2. Update the mode mapping in `DecentralizedCommuter`
+3. Add relevant smart contract logic if needed
+
+### Modifying Pricing Algorithms
+1. Edit `amm_time_sensitive_pricing.py`
+2. Implement new pricing models in `TimeSensitivePricing` class
+3. Update AMM parameters in the model configuration
+
+### Custom Agent Behaviors
+1. Modify agent decision-making logic in respective agent classes
+2. Adjust probability distributions and preference weights
+3. Add new agent attributes and behaviors as needed
+
+## Troubleshooting
+
+### Common Issues
+
+**1. "Cannot connect to blockchain"**
+```bash
+# Make sure Hardhat network is running
+npx hardhat node
+```
+
+**2. "Deployment info file not found"**
+```bash
+# Redeploy contracts
+npx hardhat run scripts/deploy.js --network localhost
+```
+
+**3. "Python module not found"**
+```bash
+# Activate virtual environment and install dependencies
+source venv/bin/activate
+pip install -r requirements.txt  # If you have one
+```
+
+**4. "Gas estimation failed"**
+- Check if you have enough ETH in test accounts
+- Ensure contracts are properly deployed
+- Verify network configuration
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+### Development Guidelines
+- Follow PEP 8 for Python code
+- Use Solidity best practices for smart contracts
+- Add tests for new features
+- Update documentation as needed
+
+## Future Enhancements
+
+- [ ] Integration with real blockchain networks (Polygon, Ethereum L2s)
+- [ ] Mobile app interface
+- [ ] Real-time GPS tracking integration
+- [ ] Machine learning for demand prediction
+- [ ] Cross-chain compatibility
+- [ ] Governance token implementation
+- [ ] Carbon credit integration
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Support
+
+For questions or support, please:
+1. Check the [Issues](../../issues) page
+2. Create a new issue with detailed description
+3. Include error logs and system information
+
+## Acknowledgments
+
+- Built with [Mesa](https://mesa.readthedocs.io/) for agent-based modeling
+- Smart contracts use [OpenZeppelin](https://openzeppelin.com/) libraries
+- Blockchain development with [Hardhat](https://hardhat.org/)
+- Inspired by decentralized autonomous organization (DAO) principles
