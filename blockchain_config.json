@@ -1,0 +1,12 @@
+{
+  "rpc_url": "http://127.0.0.1:8545",
+  "chain_id": 31337,
+  "deployment_info": "./deployment-info.json",
+  "max_batch_size": 10,
+  "tx_confirmation_blocks": 1,
+  "gas_price_strategy": "medium",
+  "gas_limit": 1500000,  
+  "provider_gas_limit": 5000000,  
+  "retry_count": 3,
+  "retry_delay": 2
+}

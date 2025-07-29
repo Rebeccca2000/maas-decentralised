@@ -1,0 +1,90 @@
+<!-- maas-visualization.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <title>MaaS Blockchain Visualization</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    .step { border: 1px solid #ccc; padding: 10px; margin: 10px 0; border-radius: 5px; }
+    .complete { background-color: #d4edda; border-color: #c3e6cb; }
+    .entity { display: inline-block; margin: 10px; padding: 10px; background-color: #f8f9fa; border-radius: 5px; }
+    .token-transfer { font-weight: bold; color: green; }
+    #timeline { height: 30px; background-color: #e9ecef; margin: 20px 0; position: relative; }
+    .marker { position: absolute; width: 2px; height: 30px; background-color: red; }
+    .marker-label { position: absolute; top: 35px; transform: translateX(-50%); font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h1>MaaS Blockchain Process Visualization</h1>
+  
+  <div id="timeline">
+    <div class="marker" style="left: 10%"><div class="marker-label">Registration</div></div>
+    <div class="marker" style="left: 25%"><div class="marker-label">Request</div></div>
+    <div class="marker" style="left: 40%"><div class="marker-label">Auction</div></div>
+    <div class="marker" style="left: 55%"><div class="marker-label">Payment</div></div>
+    <div class="marker" style="left: 70%"><div class="marker-label">NFT Mint</div></div>
+    <div class="marker" style="left: 85%"><div class="marker-label">NFT Sale</div></div>
+  </div>
+  
+  <div id="entities">
+    <h2>Entities</h2>
+    <div class="entity">
+      <h3>Commuter 1</h3>
+      ID: 1<br>
+      Income: Middle<br>
+      Age: 35<br>
+      Balance: 985 MaaS Tokens
+    </div>
+    <div class="entity">
+      <h3>Provider 2 (BikeShare1)</h3>
+      ID: 2<br>
+      Mode: Bike<br>
+      Balance: 15 MaaS Tokens
+    </div>
+    <div class="entity">
+      <h3>NFT #1</h3>
+      Owner: Commuter 2<br>
+      Original Price: 15 MaaS Tokens<br>
+      Last Sold: 20 MaaS Tokens
+    </div>
+  </div>
+  
+  <h2>Process Steps</h2>
+  <div id="steps">
+    <div class="step complete">
+      <h3>1. Registration</h3>
+      <p>Commuters and Providers registered their profiles on the blockchain</p>
+    </div>
+    <div class="step complete">
+      <h3>2. Travel Request</h3>
+      <p>Commuter 1 created a travel request from [1,1] to [10,10]</p>
+    </div>
+    <div class="step complete">
+      <h3>3. Service Auction</h3>
+      <p>UberLike1 bid: 25 tokens | BikeShare1 bid: 15 tokens</p>
+      <p>Winner: BikeShare1 with 15 token bid</p>
+    </div>
+    <div class="step complete">
+      <h3>4. Payment</h3>
+      <p class="token-transfer">Token Transfer: 15 tokens from Commuter 1 to BikeShare1</p>
+    </div>
+    <div class="step complete">
+      <h3>5. NFT Minting</h3>
+      <p>Service NFT minted with ID: 1 for completed travel service</p>
+    </div>
+    <div class="step complete">
+      <h3>6. Secondary Market</h3>
+      <p>NFT listed on market by Commuter 1 for 20 tokens</p>
+      <p class="token-transfer">Purchased by Commuter 2 for 20 tokens</p>
+    </div>
+  </div>
+  
+  <script>
+    // You could enhance this with real data fetched from your blockchain
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('MaaS visualization loaded');
+      // Animation or interaction code would go here
+    });
+  </script>
+</body>
+</html>
