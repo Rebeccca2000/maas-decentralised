@@ -113,23 +113,51 @@ def main():
     
     # Test 4: Create a travel request
     print("\n=== Test 4: Create Travel Request ===")
+
+    # Add the commuter to the blockchain interface state cache
+    # This simulates what happens in the actual ABM
+    interface.state_cache['commuters'][commuter_id] = {
+        'data': {
+            'commuterId': commuter_id,
+            'unique_id': commuter_id,  # Add this for consistency
+        }
+    }
+
     request_batch = [{
+        'request_id': random.randint(10000, 99999),  # Add missing request_id
         'commuter_id': commuter_id,
         'origin': [10, 20],
         'destination': [30, 40],
-        'start_time': int(time.time()) + 3600,  # 1 hour from now
-        'travel_purpose': 'work',
-        'flexible_time': 'medium'
+        'start_time': int(time.time()) + 3600,
+        'travel_purpose': 0,  # Use integer: 0=work, 1=school, 2=shopping, etc.
+        'flexible_time': 'medium',
+        'requirement_keys': ['wheelchair', 'assistance', 'child_seat', 'pet_friendly'],
+        'requirement_values': [False, False, False, False]
     }]
-    
+
     results = interface.process_requests_batch(request_batch)
     if not results or not results[0][0]:
-        print("ERROR: Failed to create travel request")
+        print(f"ERROR: Failed to create travel request: {results[0][1] if results else 'No results'}")
         return False
-    
-    request_id = results[0][1]
+
+    request_id = request_batch[0]['request_id']  # Use the ID we set
     print(f"Created travel request with ID: {request_id}")
-    
+    # ADD THIS BLOCK HERE - Wait for transaction confirmation
+    print("Waiting for travel request confirmation...")
+    max_wait = 30  # seconds
+    start_time_wait = time.time()
+    while time.time() - start_time_wait < max_wait:
+        try:
+            request_info = interface.contracts["request"].functions.getRequestBasicInfo(request_id).call()
+            if request_info[6] >= 0:  # Status exists
+                print("Travel request confirmed on blockchain")
+                break
+        except:
+            pass
+        time.sleep(1)
+    else:
+        print("ERROR: Travel request not confirmed within timeout")
+        return False
     # Test 5: Create an NFT
     print("\n=== Test 5: Create NFT ===")
     service_details = {
