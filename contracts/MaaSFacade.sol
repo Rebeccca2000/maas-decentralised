@@ -348,7 +348,7 @@ contract MaaSFacade {
         address commuterAddress = registry.commuterIdToAddress(commuterId);
         
         // Get basic commuter data
-        (uint256 userCommuterId, , , , , , , , ,) = registry.getCommuter(commuterAddress);
+        (uint256 userCommuterId, , , , , ) = registry.getCommuter(commuterAddress);
         
         // Get active listings
         MaaSMarket.SellRequest[] memory listings = marketContract.getActiveListings();

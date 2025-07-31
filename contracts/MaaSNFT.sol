@@ -124,7 +124,8 @@ contract MaaSNFT is ERC721URIStorage {
         // Verify request exists and belongs to sender
         require(_requestId == requestId, "Request does not exist");
         
-        (uint256 senderCommuterId,,,,,,,,,) = registry.getCommuter(msg.sender); 
+        (uint256 senderCommuterId,,,,,) = registry.getCommuter(msg.sender);
+
         require(senderCommuterId == commuterId, "Request doesn't belong to sender");
         
         // Get provider address
@@ -175,7 +176,7 @@ contract MaaSNFT is ERC721URIStorage {
         // Verify request exists and belongs to sender or is a provider
         require(_requestId == requestId, "Request does not exist");
         
-        (uint256 testSenderCommuterId,,,,,,,,,) = registry.getCommuter(msg.sender);
+        (uint256 testSenderCommuterId,,,,,) = registry.getCommuter(msg.sender);
         MaaSRegistry.Provider memory provider = registry.getProvider(msg.sender);
         
         require(testSenderCommuterId == commuterId || provider.providerId == providerId, 
