@@ -590,4 +590,14 @@ contract MaaSRegistry {
     function isUserVerified(address user) public view returns (bool) {
         return publicProfiles[user].isVerified;
     }
+
+    // Add these functions to MaaSRegistry.sol to expose needed data
+    function getProviderReputation(address providerAddress) public view returns (uint256) {
+        return reputationScores[providerAddress];
+    }
+
+    function isProviderVerified(address providerAddress) public view returns (bool) {
+        // Simple verification: reputation > 80 or can add separate mapping
+        return reputationScores[providerAddress] >= 80;
+    }
 }

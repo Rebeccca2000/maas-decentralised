@@ -410,6 +410,7 @@ contract MaaSAuction {
         address providerAddress = msg.sender;
         MaaSRegistry.Provider memory provider = registry.getProvider(providerAddress);
         require(provider.providerId > 0, "Provider is not registered");
+        require(provider.isActive, "Provider is not active");
         
         // Check if this provider has already submitted an offer for this auction
         require(!hasProviderSubmitted[newOffer.auctionId][provider.providerId], 
@@ -417,12 +418,14 @@ contract MaaSAuction {
         
         // Check if provider meets verification requirements
         if (auction.requiresVerified) {
-            require(provider.isVerified, "Only verified providers can participate");
+            bool isVerified = registry.isProviderVerified(providerAddress);
+            require(isVerified, "Only verified providers can participate");
             
             // Check rating requirement
             if (auction.minProviderRating > 0) {
-                require(provider.qualityScore >= auction.minProviderRating, 
-                      "Provider rating below minimum requirement");
+                uint256 providerReputation = registry.getProviderReputation(providerAddress);
+                require(providerReputation >= auction.minProviderRating, 
+                    "Provider rating below minimum requirement");
             }
         }
         
@@ -430,14 +433,14 @@ contract MaaSAuction {
         uint256 offerId = offersByAuction[newOffer.auctionId].length;
         hasProviderSubmitted[newOffer.auctionId][provider.providerId] = true;
         
-        // Enhance offer with provider data
+        // Enhance offer with available provider data
         Offer memory enhancedOffer = newOffer;
         enhancedOffer.id = offerId;
         enhancedOffer.offerTime = block.timestamp;
-        enhancedOffer.capacity = provider.availableCapacity;
-        enhancedOffer.quality = provider.qualityScore;
-        enhancedOffer.reliability = provider.reliability;
-        enhancedOffer.isVerified = provider.isVerified;
+        enhancedOffer.capacity = provider.capacity; // Use total capacity instead of availableCapacity
+        enhancedOffer.quality = registry.getProviderReputation(providerAddress); // Use reputation as quality
+        enhancedOffer.reliability = registry.getProviderReputation(providerAddress); // Use reputation as reliability
+        enhancedOffer.isVerified = registry.isProviderVerified(providerAddress);
         
         // Handle auction type specifics
         if (auction.auctionType == AuctionType.FixedPrice) {
