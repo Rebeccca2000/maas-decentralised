@@ -62,7 +62,10 @@ async function main() {
   );
   await facade.deployed();
   console.log(`MaaSFacade deployed to: ${facade.address}`);
-
+  // In deploy.js, after all contracts are deployed
+  await registry.addVerifier(auction.address);
+  console.log("MaaSAuction added as verifier to MaaSRegistry");
+  
   // Save deployment information to a JSON file
   const fs = require("fs");
   const deploymentInfo = {

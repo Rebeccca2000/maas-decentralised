@@ -716,17 +716,16 @@ contract MaaSAuction {
         
         // Award completion points
         if (completed) {
+
             // Record trip in registry
             if (isWinningOffer) {
                 registry.recordTrip(
                     commuterAddress, 
-                    offersByAuction[auctionId][offerId].price,
-                    offersByAuction[auctionId][offerId].mode
+                    offersByAuction[auctionId][offerId].price
                 );
                 
-                registry.recordService(
-                    providerAddress,
-                    offersByAuction[auctionId][offerId].price
+                registry.recordServiceActivity(
+                    providerAddress
                 );
             }
             

@@ -370,7 +370,19 @@ contract MaaSRegistry {
         
         emit ReputationUpdated(account, newScore);
     }
-    
+    // Add these getter functions to MaaSRegistry.sol
+    function getProviderReputation(address providerAddress) public view returns (uint256) {
+        return reputationScores[providerAddress];
+    }
+
+    function isProviderVerified(address providerAddress) public view returns (bool) {
+        // Simple verification based on reputation threshold
+        return reputationScores[providerAddress] >= 80;
+    }
+
+    function addVerifier(address verifier) public onlyAdmin {
+    verifiers[verifier] = true;
+    }
     // ================ Usage Tracking ================
     
     /**
@@ -591,13 +603,4 @@ contract MaaSRegistry {
         return publicProfiles[user].isVerified;
     }
 
-    // Add these functions to MaaSRegistry.sol to expose needed data
-    function getProviderReputation(address providerAddress) public view returns (uint256) {
-        return reputationScores[providerAddress];
-    }
-
-    function isProviderVerified(address providerAddress) public view returns (bool) {
-        // Simple verification: reputation > 80 or can add separate mapping
-        return reputationScores[providerAddress] >= 80;
-    }
 }
