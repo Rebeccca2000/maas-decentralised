@@ -321,6 +321,10 @@ class BlockchainInterface:
         """
         try:
             # Create account if not exists
+            if self.is_commuter_registered(commuter_agent.unique_id):
+                self.logger.warning(f"Commuter {commuter_agent.unique_id} already registered")
+                return True, self.accounts[commuter_agent.unique_id]["address"]
+            
             if 'registry' not in self.contracts:
                 self.logger.error("Registry contract not loaded. Check ABI paths.")
                 return False, None
@@ -485,7 +489,7 @@ class BlockchainInterface:
         if isinstance(destination, tuple):
             destination = list(destination)
             
-        start_time = request.get('start_time', self.current_abm_step)  # Already in steps
+        start_time = request.get('start_time', self.model.current_step) # Already in steps
         travel_purpose = request.get('travel_purpose', 0)
         flexible_time = request.get('flexible_time', 'medium')
         
@@ -606,8 +610,8 @@ class BlockchainInterface:
                 'providerId': provider.unique_id,
                 'price': price,
                 'mode': self._get_provider_mode_enum(provider),
-                'startTime': details.get('start_time', self.current_abm_step + 3),
-                'totalTime': details.get('time', 3),
+                'startTime': details.get('start_time', self.model.current_step + 3),
+                'offerTime': self.model.current_step,
                 'offerTime': self.current_abm_step
             }
             
@@ -3629,3 +3633,15 @@ class BlockchainInterface:
             'eth_cost': eth_cost,
             'total_wei': gas_price * base_gas
         }
+    
+    def is_commuter_registered(self, commuter_id):
+        """Check if commuter is registered on blockchain"""
+        # Check cache first
+        if commuter_id in self.state_cache.get('commuters', {}):
+            return self.state_cache['commuters'][commuter_id].get('registered', False)
+        
+        # Check if account exists
+        if commuter_id in self.accounts:
+            return True
+        
+        return False

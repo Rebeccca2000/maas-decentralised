@@ -1,0 +1,65 @@
+{
+    "total_runtime": 36.54042291641235,
+    "steps": 250,
+    "avg_step_time": 0.1461616916656494,
+    "parameters": {
+        "num_commuters": 50,
+        "grid_width": 50,
+        "grid_height": 50,
+        "income_weights": [
+            0.3,
+            0.5,
+            0.2
+        ],
+        "health_weights": [
+            0.8,
+            0.2
+        ],
+        "payment_weights": [
+            0.7,
+            0.3
+        ],
+        "age_distribution": {
+            "(18, 30)": 0.25,
+            "(31, 45)": 0.3,
+            "(46, 65)": 0.3,
+            "(66, 85)": 0.15
+        },
+        "disability_weights": [
+            0.1,
+            0.9
+        ],
+        "tech_access_weights": [
+            0.85,
+            0.15
+        ],
+        "uber_like1_capacity": 10,
+        "uber_like1_price": 1.2,
+        "uber_like2_capacity": 8,
+        "uber_like2_price": 1.0,
+        "bike_share1_capacity": 20,
+        "bike_share1_price": 0.5,
+        "bike_share2_capacity": 15,
+        "bike_share2_price": 0.4,
+        "stations": null,
+        "routes": null,
+        "transfers": null,
+        "blockchain_config": "blockchain_config.json",
+        "market_type": "hybrid",
+        "enable_amm": false,
+        "amm_volume_threshold": 3,
+        "time_decay_factor": 0.1,
+        "min_price_ratio": 0.5
+    },
+    "commuters": 50,
+    "execution_times": {
+        "commuter_decisions": 3.710651397705078e-05,
+        "provider_offers": 0.00019476318359375,
+        "marketplace_update": 2.6645660400390625e-06,
+        "blockchain_operations": 0.0084134521484375
+    },
+    "completed_trips": 46,
+    "active_nfts": 0,
+    "average_price": 0,
+    "transaction_count": 46
+}
