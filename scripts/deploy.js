@@ -1,99 +1,58 @@
-// File: scripts/deploy.js
+// scripts/deploy.js (Ethers v5 compatible)
+const fs = require("fs");
+const path = require("path");
 const { ethers } = require("hardhat");
 
 async function main() {
-  console.log("Starting deployment of MaaS smart contracts...");
-
-  // Get the signers
   const [deployer] = await ethers.getSigners();
-  console.log(`Deploying contracts with the account: ${deployer.address}`);
+  console.log("Deployer:", deployer.address);
 
-  // Deploy MaaSRegistry first
-  console.log("Deploying MaaSRegistry...");
-  const MaaSRegistry = await ethers.getContractFactory("MaaSRegistry");
-  const registry = await MaaSRegistry.deploy();
+  // 1) Deploy Registry
+  const Registry = await ethers.getContractFactory("MaaSRegistry");
+  const registry = await Registry.deploy();
   await registry.deployed();
-  console.log(`MaaSRegistry deployed to: ${registry.address}`);
 
-  // Deploy MaaSRequest
-  console.log("Deploying MaaSRequest...");
-  const MaaSRequest = await ethers.getContractFactory("MaaSRequest");
-  const request = await MaaSRequest.deploy(registry.address);
+  // 2) Deploy Request
+  const Request = await ethers.getContractFactory("MaaSRequest");
+  const request = await Request.deploy(registry.address);
   await request.deployed();
-  console.log(`MaaSRequest deployed to: ${request.address}`);
 
-  // Deploy MockERC20 (for payments)
-  console.log("Deploying MockERC20...");
-  const MockERC20 = await ethers.getContractFactory("MockERC20");
-  const mockToken = await MockERC20.deploy("MaaS Token", "MAAS", ethers.utils.parseEther("1000000"));
-  await mockToken.deployed();
-  console.log(`MockERC20 deployed to: ${mockToken.address}`);
-
-  // Deploy MaaSAuction
-  console.log("Deploying MaaSAuction...");
-  const MaaSAuction = await ethers.getContractFactory("MaaSAuction");
-  const auction = await MaaSAuction.deploy(registry.address, request.address);
+  // 3) Deploy Auction
+  const Auction = await ethers.getContractFactory("MaaSAuction");
+  const auction = await Auction.deploy(registry.address, request.address);
   await auction.deployed();
-  console.log(`MaaSAuction deployed to: ${auction.address}`);
 
-  // Deploy MaaSNFT
-  console.log("Deploying MaaSNFT...");
-  const MaaSNFT = await ethers.getContractFactory("MaaSNFT");
-  const nft = await MaaSNFT.deploy(registry.address, request.address, auction.address, mockToken.address);
-  await nft.deployed();
-  console.log(`MaaSNFT deployed to: ${nft.address}`);
-
-  // Deploy MaaSMarket
-  console.log("Deploying MaaSMarket...");
-  const MaaSMarket = await ethers.getContractFactory("MaaSMarket");
-  const market = await MaaSMarket.deploy(nft.address, mockToken.address);
-  await market.deployed();
-  console.log(`MaaSMarket deployed to: ${market.address}`);
-
-  // Deploy MaaSFacade
-  console.log("Deploying MaaSFacade...");
-  const MaaSFacade = await ethers.getContractFactory("MaaSFacade");
-  const facade = await MaaSFacade.deploy(
-    registry.address,
-    request.address,
-    auction.address,
-    nft.address,
-    market.address
-  );
+  // 4) Deploy Facade
+  const Facade = await ethers.getContractFactory("MaaSFacade");
+  const facade = await Facade.deploy(registry.address, request.address, auction.address);
   await facade.deployed();
-  console.log(`MaaSFacade deployed to: ${facade.address}`);
-  // In deploy.js, after all contracts are deployed
-  await registry.addVerifier(auction.address);
-  console.log("MaaSAuction added as verifier to MaaSRegistry");
-  
-  // Save deployment information to a JSON file
-  const fs = require("fs");
-  const deploymentInfo = {
-    registry: registry.address,
-    request: request.address,
-    auction: auction.address,
-    nft: nft.address,
-    market: market.address,
-    facade: facade.address,
-    mockToken: mockToken.address,
-    network: network.name,
-    deployer: deployer.address,
-    timestamp: Date.now()
+
+  // 5) WIRE DIRECTLY AS OWNER (KISS)
+  // These calls must originate from the owner (deployer), not from the Facade.
+  await (await request.setMarketplaceAddress(facade.address, { gasLimit: 5_000_000 })).wait();
+  await (await auction.setMarketplaceAddress(facade.address, { gasLimit: 5_000_000 })).wait();
+
+  // 6) Set marketplace API on Facade (owner-only)
+  await (await facade.setMarketplaceAPI(deployer.address, { gasLimit: 2_000_000 })).wait();
+
+  // 7) Save addresses
+  const out = {
+    network: (await ethers.provider.getNetwork()).name || "localhost",
+    Registry: registry.address,
+    Request: request.address,
+    Auction: auction.address,
+    Facade: facade.address,
+    marketplaceAPI: await facade.marketplaceAPI(),
+    deployedBy: deployer.address,
+    deployedAt: new Date().toISOString()
   };
-
-  fs.writeFileSync(
-    "deployment-info.json",
-    JSON.stringify(deploymentInfo, null, 2)
-  );
-  console.log("Deployment information saved to deployment-info.json");
-
-  console.log("MaaS contract deployment completed successfully!");
+  const dir = path.resolve("./deployed");
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, "simplified.json"), JSON.stringify(out, null, 2));
+  console.log("Deployed:", out);
 }
 
-// Execute the deployment
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error("Error during deployment:", error);
-    process.exit(1);
-  });
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

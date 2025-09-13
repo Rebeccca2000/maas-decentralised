@@ -528,91 +528,6 @@ class DecentralizedCommuter(Agent):
         if self.active_request_id:
             self.check_request_status()
 
-    def evaluate_marketplace_options(self, request_id):
-        """
-        Evaluate options from direct booking and NFT marketplace.
-        
-        Args:
-            request_id: The request ID to evaluate options for
-            
-        Returns:
-            List of (utility, option) tuples, sorted by utility (highest first)
-        """
-        if request_id not in self.requests:
-            self.logger.error(f"Request {request_id} not found")
-            return []
-        
-        request = self.requests[request_id]
-        self.logger.info(f"Evaluating marketplace options for request {request_id}")
-        
-        # Get direct booking options from service providers in the model
-        direct_options = []
-        for provider in self.model.schedule.agents:
-            if hasattr(provider, 'get_service_offers'):
-                offers = provider.get_service_offers(
-                    request['origin'],
-                    request['destination'],
-                    request['start_time']
-                )
-                
-                for offer in offers:
-                    # Standardize offer format
-                    direct_options.append({
-                        'type': 'direct_booking',
-                        'provider_id': provider.unique_id,
-                        'provider_name': getattr(provider, 'company_name', f"Provider-{provider.unique_id}"),
-                        'price': offer['price'],
-                        'time': offer['duration'],
-                        'mode': offer['mode'],
-                        'comfort': offer.get('comfort', 0.5),
-                        'reliability': getattr(provider, 'reliability', 0.5),
-                        'departure_time': offer['departure_time'],
-                        'route': offer.get('route', [])
-                    })
-        
-        # Get NFT marketplace options
-        market_params = {
-            'min_price': 0,
-            'max_price': self._calculate_max_price(request),
-            'min_departure': request['start_time'] - int(self.time_flexibility * 3600),  # Convert to seconds
-            'max_departure': request['start_time'] + int(self.time_flexibility * 3600),
-            'origin_area': [request['origin'][0], request['origin'][1], 5],  # 5 unit radius
-            'dest_area': [request['destination'][0], request['destination'][1], 5]
-        }
-        
-        market_results = self.blockchain_interface.search_nft_market(market_params)
-        
-        market_options = []
-        for result in market_results:
-            # Standardize market option format
-            market_options.append({
-                'type': 'nft_market',
-                'nft_id': result['token_id'],
-                'provider_id': result.get('provider_id', 0),
-                'seller_id': result.get('seller', ''),
-                'price': float(result['price']),
-                'service_time': result.get('start_time', request['start_time']),
-                'time': result.get('duration', 0),
-                'mode': result.get('mode', 'unknown'),
-                'comfort': result.get('comfort', 0.5),
-                'reliability': result.get('reliability', 0.5),
-                'route': result.get('route_details', {}).get('route', [])
-            })
-        
-        self.logger.info(f"Found {len(direct_options)} direct options and {len(market_options)} market options")
-        
-        # Evaluate all options using utility function
-        ranked_options = []
-        all_options = direct_options + market_options
-        
-        for option in all_options:
-            utility = self.calculate_option_utility(option, request_id)
-            ranked_options.append((utility, option))
-        
-        # Sort by utility (highest first)
-        ranked_options.sort(reverse=True, key=lambda x: x[0])
-        
-        return ranked_options
 
     def calculate_option_utility(self, option, request_id):
         """
@@ -925,7 +840,7 @@ class DecentralizedCommuter(Agent):
         else:
             self.logger.error(f"Failed to purchase bundle {bundle_id}")
             return False
-    def select_and_purchase_option(self, request_id, strategy=None):
+    def select_and_purchase_option(self, ranked_options, request_id, strategy=None):
         """
         Select and purchase the best mobility option.
         
@@ -948,9 +863,6 @@ class DecentralizedCommuter(Agent):
         
         self.logger.info(f"Using strategy: {strategy} for request {request_id}")
         self.requests[request_id]['selected_strategy'] = strategy
-        
-        # Get ranked options
-        ranked_options = self.evaluate_marketplace_options(request_id)
         
         if not ranked_options:
             self.logger.warning(f"No options found for request {request_id}")
