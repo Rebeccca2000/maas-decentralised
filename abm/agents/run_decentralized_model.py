@@ -192,32 +192,6 @@ def visualize_results(model, timestamp, output_dir):
     
     # Create more detailed visualizations
     
-    # AMM vs Order Book usage (if hybrid market)
-    if hasattr(model, 'marketplace') and model.marketplace.market_type == 'hybrid':
-        plt.figure(figsize=(10, 6))
-        
-        # Count transactions by market mechanism
-        amm_count = 0
-        orderbook_count = 0
-        
-        for tx in model.marketplace.transaction_history:
-            # Check if tx has nft_id key
-            if 'nft_id' not in tx:
-                continue
-                
-            nft_id = tx['nft_id']
-            if nft_id in model.marketplace.listings:
-                route_key = model.marketplace._get_route_key(model.marketplace.listings[nft_id]['details'])
-                if route_key in model.marketplace.amm_pools:
-                    amm_count += 1
-                else:
-                    orderbook_count += 1
-        
-        plt.bar(['AMM', 'Order Book'], [amm_count, orderbook_count])
-        plt.title('Market Mechanism Usage')
-        plt.ylabel('Number of Transactions')
-        plt.savefig(os.path.join(output_dir, f"market_mechanisms_{timestamp}.png"), dpi=300)
-        plt.close()
     
     # Execution time breakdown
     if hasattr(model, 'execution_times') and model.execution_times:
@@ -263,8 +237,6 @@ def get_default_params():
         'transfers': None, # No transfers
         'blockchain_config': "blockchain_config.json",
         'market_type': "hybrid",  # Use hybrid market model
-        'enable_amm': True,
-        'amm_volume_threshold': 3,  # Lower threshold for testing
         'time_decay_factor': 0.1,
         'min_price_ratio': 0.5
     }
@@ -276,10 +248,8 @@ if __name__ == "__main__":
                         help='Number of steps to run the simulation')
     parser.add_argument('--commuters', type=int, default=50,
                         help='Number of commuter agents')
-    parser.add_argument('--market', type=str, default='hybrid', choices=['order_book', 'amm', 'hybrid'],
+    parser.add_argument('--market', type=str, default='hybrid', choices=['order_book', 'hybrid'],
                         help='Market mechanism to use')
-    parser.add_argument('--amm', action='store_true',
-                        help='Enable AMM component')
     parser.add_argument('--config', type=str, default=None,
                         help='Path to configuration JSON file')
     parser.add_argument('--output', type=str, default='results',
@@ -295,7 +265,6 @@ if __name__ == "__main__":
     # Update with command line arguments
     params['num_commuters'] = args.commuters
     params['market_type'] = args.market
-    params['enable_amm'] = args.amm
     
     # Debug mode
     if args.debug:

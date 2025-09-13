@@ -6,7 +6,7 @@ from mesa.datacollection import DataCollector
 from decentralized_commuter import DecentralizedCommuter
 from decentralized_provider import DecentralizedProvider
 from nft_marketplace import NFTMarketplace
-from amm_time_sensitive_pricing import MobilityAMM, TimeSensitivePricing
+
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -46,8 +46,6 @@ class DecentralizedMaaSModel(Model):
                  transfers=None,
                  blockchain_config="../../blockchain_config.json",
                  market_type="hybrid",
-                 enable_amm=True,
-                 amm_volume_threshold=2,
                  time_decay_factor=0.1,
                  min_price_ratio=0.5):
         """
@@ -68,9 +66,6 @@ class DecentralizedMaaSModel(Model):
             routes: Public transport routes (optional)
             transfers: Public transport transfers (optional)
             blockchain_config: Configuration file for blockchain interface
-            market_type: Market mechanism type (order_book, amm, hybrid)
-            enable_amm: Whether to enable the AMM component
-            amm_volume_threshold: Minimum transactions for AMM eligibility
             time_decay_factor: Rate of price decay as service time approaches
             min_price_ratio: Minimum price as ratio of initial price
         """
@@ -104,11 +99,6 @@ class DecentralizedMaaSModel(Model):
         self.transaction_count = 0
         self.active_listings_count = 0
         self.completed_trips_count = 0
-        # Phase 2 specific parameters
-        self.enable_amm = enable_amm
-        self.amm_volume_threshold = amm_volume_threshold
-        self.time_decay_factor = time_decay_factor
-        self.min_price_ratio = min_price_ratio
         
         # Performance tracking
         self.execution_times = {
@@ -116,35 +106,15 @@ class DecentralizedMaaSModel(Model):
             'provider_offers': [],
             'marketplace_update': [],
             'blockchain_operations': [],
-            'amm_operations': []
         }
         
         # Initialize blockchain interface
         self.blockchain_interface = BlockchainInterface(blockchain_config, async_mode=True)
         self.blockchain_interface.model = self 
-        # Initialize time-sensitive pricing component
-        self.pricing_engine = TimeSensitivePricing(base_pricing_model="exponential_decay")
-        self.pricing_engine.pricing_params["exponential_decay"]["decay_rate"] = time_decay_factor
-        self.pricing_engine.pricing_params["exponential_decay"]["min_price_ratio"] = min_price_ratio
-        
-        # Initialize NFT marketplace with specified type (order_book, amm, or hybrid)
+
+        # Initialize NFT marketplace with specified type (order_book, or hybrid)
         self.marketplace = NFTMarketplace(self, self.blockchain_interface, market_type)
         
-        # Initialize AMM component (Phase 2 addition)
-        if self.enable_amm:
-            self.amm = MobilityAMM(self.blockchain_interface, self)
-            # Set AMM parameters
-            self.amm.amm_params = {
-                'time_decay_factor': time_decay_factor,
-                'demand_sensitivity': 0.2,
-                'min_price_ratio': min_price_ratio,
-                'volume_threshold': amm_volume_threshold,
-                'price_impact_factor': 0.05
-            }
-            self.logger.info("AMM component initialized with volume threshold: %d", amm_volume_threshold)
-        else:
-            self.amm = None
-            self.logger.info("AMM component disabled")
         
         # Initialize provider agents
         self.providers = {}
@@ -168,8 +138,6 @@ class DecentralizedMaaSModel(Model):
                 "Active NFT Listings": lambda m: sum(1 for listing in self.marketplace.listings.values() if listing['status'] == 'active'),
                 "Average NFT Price": lambda m: self.calculate_average_nft_price(),
                 "Completed Trips": lambda m: self.count_completed_trips(),
-                "AMM Pools": lambda m: len(self.amm.liquidity_pools) if self.amm else 0,
-                "AMM Trading Volume": lambda m: self.calculate_amm_volume(),
                 "Execution Time": lambda m: self.get_average_execution_time()
             },
             agent_reporters={
@@ -586,12 +554,7 @@ class DecentralizedMaaSModel(Model):
         self.marketplace.update_listings()
         self.execution_times['marketplace_update'].append(time.time() - start_time)
         
-        # Update AMM component (Phase 2 addition)
-        if self.enable_amm:
-            start_time = time.time()
-            self._update_amm_component()
-            self.execution_times['amm_operations'].append(time.time() - start_time)
-        
+
         # Update popular routes
         if self.current_step % 20 == 0:  # Every 20 steps
             self._update_popular_routes()
@@ -689,30 +652,9 @@ class DecentralizedMaaSModel(Model):
                 
                 # For popular routes, check if AMM is available
                 route_key = self._get_route_key(request['origin'], request['destination'], request['start_time'])
-                use_amm = self.enable_amm and route_key in self.popular_routes
+
                 
-                # Decide whether to use AMM, purchase from market, or request new service
-                if use_amm and random.random() < 0.4:  # 40% chance to use AMM for popular routes
-                    # Create AMM pool if it doesn't exist
-                    if route_key not in self.amm.liquidity_pools:
-                        self._create_amm_pool_for_route(route_key, request)
-                    
-                    # Get quote from AMM
-                    amm_quote = self.amm.get_quote(
-                        request['origin'], 
-                        request['destination'], 
-                        commuter._calculate_max_price() if hasattr(commuter, '_calculate_max_price') else 20, 
-                        is_buy=True
-                    )
-                    
-                    if amm_quote:
-                        # Execute swap
-                        success, swap_details = self.amm.execute_swap(amm_quote, commuter_id)
-                        if success:
-                            self.logger.info(f"Commuter {commuter_id} purchased service via AMM for route {route_key}")
-                            # Update transaction count for successful AMM swap
-                            self.transaction_count += 1
-                elif market_options and hasattr(commuter, 'evaluate_marketplace_options'):
+                if market_options and hasattr(commuter, 'evaluate_marketplace_options'):
                     # Choose NFT from market based on commuter's strategy weights
                     strategy_weights = getattr(commuter, 'strategy_weights', {'market_purchase': 0.3})
                     if strategy_weights.get('market_purchase', 0) > random.random():
@@ -970,20 +912,7 @@ class DecentralizedMaaSModel(Model):
                 else:
                     self.logger.warning(f"Failed to submit offer for request {offer['request_id']}")
 
-    def _update_amm_component(self):
-        """Update AMM pools and pricing"""
-        if not self.enable_amm:
-            return
-        
-        # Update all AMM pools
-        self.amm.update_pools()
-        
-        # Check for providers to add liquidity
-        self._check_provider_liquidity_opportunities()
-        
-        # Check for price arbitrage opportunities
-        self._check_arbitrage_opportunities()
-
+    
     def _check_provider_liquidity_opportunities(self):
         """Check for providers who could benefit from adding liquidity to AMM pools"""
         # This simulates providers deciding to participate in AMM liquidity provision
@@ -1011,9 +940,6 @@ class DecentralizedMaaSModel(Model):
                     # Calculate amount based on capacity and price
                     liquidity_amount = provider.base_price * 10
                     
-                    # Add liquidity to pool
-                    provider.add_liquidity_to_amm(origin, destination, liquidity_amount)
-                    self.logger.info(f"Provider {provider_id} added {liquidity_amount} liquidity to AMM pool for route {route_key}")
 
     def _check_arbitrage_opportunities(self):
         """
@@ -1026,11 +952,7 @@ class DecentralizedMaaSModel(Model):
             
         # For each popular route with an AMM pool
         for route_key in self.popular_routes:
-            if route_key not in self.amm.liquidity_pools:
-                continue
                 
-            pool = self.amm.liquidity_pools[route_key]
-            amm_price = pool['last_price']
             
             # Extract route information
             origin, destination, time_window = self._parse_route_key(route_key)
@@ -1049,10 +971,6 @@ class DecentralizedMaaSModel(Model):
             market_prices = [listing['price'] for listing in market_listings]
             avg_market_price = sum(market_prices) / len(market_prices)
             
-            # Check for significant price difference (>10%)
-            if abs(avg_market_price - amm_price) / avg_market_price > 0.1:
-                self.logger.info(f"Arbitrage opportunity on route {route_key}: "
-                                f"AMM price: {amm_price}, Market price: {avg_market_price}")
                 
                 # In a more complex model, agents could exploit this opportunity
 
@@ -1078,65 +996,7 @@ class DecentralizedMaaSModel(Model):
                     # Count transaction
                     self.route_transactions[route_key] = self.route_transactions.get(route_key, 0) + 1
         
-        # Identify popular routes (those with transaction count >= threshold)
-        self.popular_routes = {
-            route for route, count in self.route_transactions.items()
-            if count >= self.amm_volume_threshold
-        }
-        
-        # Create AMM pools for popular routes that don't have one yet
-        if self.enable_amm:
-            for route_key in self.popular_routes:
-                if route_key not in self.amm.liquidity_pools:
-                    # Extract route information
-                    origin, destination, time_window = self._parse_route_key(route_key)
-                    
-                    # Estimate initial price based on route characteristics
-                    initial_price = self._estimate_route_price(origin, destination)
-                    
-                    # Create AMM pool
-                    self._create_amm_pool_for_route(route_key, {
-                        'origin': origin,
-                        'destination': destination,
-                        'start_time': time_window
-                    }, initial_price)
-        
-        self.logger.info(f"Updated popular routes: {len(self.popular_routes)} routes exceed threshold {self.amm_volume_threshold}")
-
-    def _create_amm_pool_for_route(self, route_key, request, initial_price=None):
-        """
-        Create an AMM liquidity pool for a route
-        
-        Args:
-            route_key: Route key
-            request: Request details containing origin, destination
-            initial_price: Optional initial price (calculated if not provided)
-        """
-        if not self.enable_amm or route_key in self.amm.liquidity_pools:
-            return
-            
-        # Extract or parse route information
-        if isinstance(route_key, str):
-            origin, destination, _ = self._parse_route_key(route_key)
-        else:
-            origin = request['origin']
-            destination = request['destination']
-            route_key = self._get_route_key(origin, destination, request['start_time'])
-        
-        # Calculate initial price if not provided
-        if initial_price is None:
-            initial_price = self._estimate_route_price(origin, destination)
-        
-        # Create pool
-        self.amm.create_liquidity_pool({
-            'route_key': route_key,
-            'origin': origin,
-            'destination': destination,
-            'initial_price': initial_price,
-            'initial_liquidity': initial_price * 20  # Seed liquidity
-        })
-        
-        self.logger.info(f"Created AMM pool for route {route_key} with initial price {initial_price}")
+       
 
     def _get_route_key(self, origin, destination, time_window=None):
         """
@@ -1269,18 +1129,6 @@ class DecentralizedMaaSModel(Model):
         """Count total completed trips"""
         # Instead of calculating this every time, use the tracked counter
         return self.completed_trips_count
-
-    def calculate_amm_volume(self):
-        """Calculate total AMM trading volume"""
-        if not self.enable_amm:
-            return 0
-            
-        total_volume = 0
-        for pool in self.amm.liquidity_pools.values():
-            for trade in pool.get('trades', []):
-                total_volume += trade.get('input_amount', 0)
-                
-        return total_volume
 
     def get_average_execution_time(self):
         """Get average execution time across all components"""

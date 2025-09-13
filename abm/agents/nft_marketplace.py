@@ -24,11 +24,11 @@ class NFTMarketplace:
         Args:
             model: The model containing this marketplace
             blockchain_interface: Interface to the blockchain
-            market_type: Type of market ("order_book", "amm", or "hybrid")
+            market_type: Type of market ("order_book", or "hybrid")
         """
         self.model = model
         self.blockchain_interface = blockchain_interface
-        self.market_type = market_type  # "order_book", "amm", or "hybrid"
+        self.market_type = market_type  # "order_book" or "hybrid"
         
         # Configure logging
         logging.basicConfig(level=logging.INFO)
@@ -38,16 +38,6 @@ class NFTMarketplace:
         self.bid_book = {}  # Dictionary of bids by price
         self.ask_book = {}  # Dictionary of asks by price
         self.bids = {}      # Stores bid objects
-        
-        # For AMM model
-        self.amm_pools = {}  # Liquidity pools for popular routes
-        self.amm_params = {
-            'time_decay_factor': 0.1,
-            'demand_sensitivity': 0.2,
-            'min_price_ratio': 0.5,  # Minimum price as ratio of original
-            'volume_threshold': 5,   # Minimum transactions to consider a route popular
-            'price_impact_factor': 0.05  # Price impact per volume unit
-        }
         
         # Market metadata
         self.listings = {}
@@ -109,11 +99,7 @@ class NFTMarketplace:
         # Add to order book if using order book model
         if self.market_type in ["order_book", "hybrid"]:
             self._add_to_order_book(nft_id, initial_price)
-        
-        # Add to AMM pool if using AMM model and it's a popular route
-        if self.market_type in ["amm", "hybrid"] and self._is_popular_route(nft_details):
-            self._add_to_amm_pool(nft_id, nft_details, initial_price)
-        
+
         # List on blockchain
         time_parameters = {
             'initial_price': initial_price,
@@ -176,37 +162,6 @@ class NFTMarketplace:
         self.sorted_bids = sorted(self.bid_book.keys(), reverse=True)  # Highest first
         self.sorted_asks = sorted(self.ask_book.keys())  # Lowest first
 
-    def _add_to_amm_pool(self, nft_id, nft_details, initial_price):
-        """
-        Add NFT to AMM liquidity pool for its route.
-        
-        Args:
-            nft_id: NFT ID to add
-            nft_details: NFT details with route information
-            initial_price: Initial listing price
-        """
-        # Create route key from origin/destination
-        route_key = self._get_route_key(nft_details)
-        
-        # Initialize pool if needed
-        if route_key not in self.amm_pools:
-            self.amm_pools[route_key] = {
-                'nfts': [],
-                'base_price': initial_price,
-                'current_price': initial_price,
-                'last_update_time': self.model.schedule.time,
-                'demand_factor': 1.0,
-                'liquidity': initial_price,
-                'volume_24h': 0
-            }
-        
-        # Add to pool
-        self.amm_pools[route_key]['nfts'].append(nft_id)
-        
-        # If this is a new NFT, add its value to the pool liquidity
-        self.amm_pools[route_key]['liquidity'] += initial_price
-        
-        self.logger.info(f"Added NFT {nft_id} to AMM pool for route {route_key}")
 
     def _get_route_key(self, nft_details):
         """
@@ -225,24 +180,6 @@ class NFTMarketplace:
         time_window = round(nft_details['service_time'] / 3600) * 3600
         
         return f"{origin}_{destination}_{time_window}"
-
-    def _is_popular_route(self, nft_details):
-        """
-        Determine if a route is popular enough for AMM.
-        
-        Args:
-            nft_details: NFT details with route information
-            
-        Returns:
-            Boolean indicating if route is popular
-        """
-        route_key = self._get_route_key(nft_details)
-        
-        # Check transaction history
-        transaction_count = self.volume_by_route.get(route_key, 0)
-        
-        # Popular routes have at least threshold transactions
-        return transaction_count >= self.amm_params['volume_threshold']
 
     def _calculate_decay_duration(self, nft_details):
         """
@@ -310,16 +247,9 @@ class NFTMarketplace:
                 # Remove from order book
                 if self.market_type in ["order_book", "hybrid"]:
                     self._remove_from_order_book(nft_id, listing['current_price'])
-                
-                # Remove from AMM pool if present
-                if self.market_type in ["amm", "hybrid"]:
-                    self._remove_from_amm_pool(nft_id)
+
                     
                 self.logger.info(f"NFT {nft_id} expired at time {current_time}")
-        
-        # Update AMM pools
-        if self.market_type in ["amm", "hybrid"]:
-            self._update_amm_pools()
         
         # Match any outstanding bids
         if self.market_type in ["order_book", "hybrid"]:
@@ -399,107 +329,6 @@ class NFTMarketplace:
                         del self.market_depth[route_key]['asks'][price_key]
             
             self.logger.debug(f"Removed NFT {nft_id} from order book at price {price}")
-
-    def _remove_from_amm_pool(self, nft_id):
-        """
-        Remove NFT from AMM pool.
-        
-        Args:
-            nft_id: NFT ID to remove
-        """
-        # Find the pool containing this NFT
-        for route_key, pool in list(self.amm_pools.items()):
-            if nft_id in pool['nfts']:
-                pool['nfts'].remove(nft_id)
-                
-                # Remove pool if empty
-                if not pool['nfts']:
-                    del self.amm_pools[route_key]
-                    self.logger.info(f"AMM pool for route {route_key} removed (no NFTs)")
-                else:
-                    self.logger.debug(f"Removed NFT {nft_id} from AMM pool {route_key}")
-                break
-
-    def _update_amm_pools(self):
-        """Update AMM pool pricing based on time decay and market conditions."""
-        current_time = self.model.schedule.time
-        
-        for route_key, pool in list(self.amm_pools.items()):
-            if not pool['nfts']:
-                continue
-                
-            # Get first NFT to determine service time
-            sample_nft_id = pool['nfts'][0]
-            if sample_nft_id not in self.listings:
-                continue
-                
-            sample_nft = self.listings[sample_nft_id]
-            service_time = sample_nft['details']['service_time']
-            
-            # Calculate time to service
-            time_to_service = service_time - current_time
-            
-            # Update demand factor based on market activity
-            transaction_count = self.volume_by_route.get(route_key, 0)
-            recent_transactions = sum(1 for tx in self.transaction_history[-20:] 
-                                    if self._get_route_key(self.listings.get(tx['nft_id'], {}).get('details', {})) == route_key)
-            
-            # Demand factor increases with more recent transactions
-            if recent_transactions > 3:
-                # High recent demand
-                pool['demand_factor'] = min(1.5, pool['demand_factor'] * 1.05)
-            elif recent_transactions == 0 and transaction_count > 0:
-                # No recent demand for popular route
-                pool['demand_factor'] = max(0.7, pool['demand_factor'] * 0.95)
-            
-            # Calculate new price based on time decay and demand
-            if time_to_service <= 0:
-                # Service time passed, set minimum price
-                new_price = pool['base_price'] * self.amm_params['min_price_ratio']
-            else:
-                # Apply time decay formula with sharper decay as service time approaches
-                time_factor = math.exp(-self.amm_params['time_decay_factor'] * 
-                                     (1.0 / max(1, time_to_service/3600)))
-                
-                # Apply demand adjustment
-                demand_adjustment = 1.0 + (pool['demand_factor'] - 1.0) * self.amm_params['demand_sensitivity']
-                
-                # Calculate new price
-                new_price = max(
-                    pool['base_price'] * self.amm_params['min_price_ratio'],
-                    pool['base_price'] * time_factor * demand_adjustment
-                )
-            
-            # Update pool price
-            old_price = pool['current_price']
-            pool['current_price'] = new_price
-            pool['last_update_time'] = current_time
-            
-            # Update individual listing prices to match AMM price
-            for nft_id in pool['nfts']:
-                if nft_id in self.listings and self.listings[nft_id]['status'] == 'active':
-                    self.listings[nft_id]['current_price'] = new_price
-                    
-                    # Update order book if using hybrid model and price changed significantly
-                    if self.market_type == "hybrid" and abs(old_price - new_price) / old_price > 0.01:
-                        self._update_order_book_price(nft_id, old_price, new_price)
-            
-            # Record price change in history
-            if route_key not in self.price_history:
-                self.price_history[route_key] = []
-            self.price_history[route_key].append((current_time, new_price))
-            
-            # Limit history size
-            if len(self.price_history[route_key]) > 100:
-                self.price_history[route_key] = self.price_history[route_key][-100:]
-            
-            # Calculate volatility
-            if len(self.price_history[route_key]) >= 10:
-                # Use last 10 price points to calculate volatility
-                recent_prices = [p for _, p in self.price_history[route_key][-10:]]
-                self.volatility_by_route[route_key] = np.std(recent_prices) / np.mean(recent_prices)
-            
-            self.logger.debug(f"Updated AMM pool price for route {route_key}: {old_price} -> {new_price}")
 
     def place_bid(self, buyer_id, route_params, max_price):
         """
@@ -734,15 +563,7 @@ class NFTMarketplace:
             if offer_price < listing['current_price']:
                 self.logger.warning(f"Offer price {offer_price} too low for NFT {nft_id}")
                 return False
-        
-        # Get price from appropriate source
-        if self.market_type == "amm":
-            # Use AMM price for this route
-            route_key = self._get_route_key(listing['details'])
-            if route_key in self.amm_pools:
-                price = self.amm_pools[route_key]['current_price']
-            else:
-                price = listing['current_price']
+    
         else:
             # Use listing price
             price = listing['current_price']
@@ -758,10 +579,7 @@ class NFTMarketplace:
             # Remove from order book
             if self.market_type in ["order_book", "hybrid"]:
                 self._remove_from_order_book(nft_id, listing['current_price'])
-            
-            # Remove from AMM pool
-            if self.market_type in ["amm", "hybrid"]:
-                self._remove_from_amm_pool(nft_id)
+        
             
             # Record transaction
             transaction = {
@@ -782,14 +600,7 @@ class NFTMarketplace:
                 self.price_history[route_key] = []
             self.price_history[route_key].append((self.model.schedule.time, price))
             
-            # Update AMM pool volume_24h
-            if route_key in self.amm_pools:
-                self.amm_pools[route_key]['volume_24h'] += price
-                
-                # Decay older volume (simple approximation of 24h window)
-                # Assumes each update is ~1 time unit
-                self.amm_pools[route_key]['volume_24h'] *= 0.99
-            
+        
             # Update model tracking properties
             if hasattr(self.model, 'transaction_count'):
                 self.model.transaction_count += 1
@@ -812,9 +623,6 @@ class NFTMarketplace:
         """
         route_key = self._get_route_key(route_details)
         
-        # Check AMM pools first
-        if route_key in self.amm_pools:
-            return self.amm_pools[route_key]['current_price']
             
         # Check recent transactions
         route_transactions = [tx for tx in self.transaction_history[-20:]
@@ -837,78 +645,3 @@ class NFTMarketplace:
             
         return None
 
-    def get_market_analytics(self):
-        """
-        Get analytics data for the marketplace.
-        
-        Returns:
-            Dict containing market analytics data
-        """
-        # Calculate aggregate statistics
-        analytics = {
-            'active_listings': sum(1 for listing in self.listings.values() if listing['status'] == 'active'),
-            'transaction_volume': len(self.transaction_history),
-            'active_bids': sum(len(bids) for bids in self.bid_book.values()),
-            'amm_pools': len(self.amm_pools),
-            'average_price': np.mean([tx['price'] for tx in self.transaction_history[-100:]]) if self.transaction_history else 0,
-            'median_price': np.median([tx['price'] for tx in self.transaction_history[-100:]]) if self.transaction_history else 0,
-            'popular_routes': sorted(self.volume_by_route.items(), key=lambda x: x[1], reverse=True)[:5],
-            'price_trends': {},
-            'volatility': {},
-            'spread': {},
-            'last_updated': self.model.schedule.time
-        }
-        
-        # Calculate price trends for popular routes
-        for route, count in self.volume_by_route.items():
-            if count >= 5 and route in self.price_history and len(self.price_history[route]) >= 5:
-                analytics['price_trends'][route] = self._calculate_price_trend(self.price_history[route])
-                
-                if route in self.volatility_by_route:
-                    analytics['volatility'][route] = self.volatility_by_route[route]
-                
-                # Calculate bid-ask spread for routes with order book data
-                if route in self.market_depth:
-                    ask_prices = sorted(self.market_depth[route]['asks'].keys())
-                    bid_prices = sorted(self.market_depth[route]['bids'].keys(), reverse=True)
-                    
-                    if ask_prices and bid_prices:
-                        analytics['spread'][route] = ask_prices[0] - bid_prices[0]
-        
-        return analytics
-
-    def _calculate_price_trend(self, price_history):
-        """
-        Calculate price trend from history.
-        
-        Args:
-            price_history: List of (time, price) tuples
-            
-        Returns:
-            Price trend coefficient
-        """
-        if len(price_history) < 5:
-            return 0
-        
-        # Extract times and prices
-        times = np.array([t for t, _ in price_history])
-        prices = np.array([p for _, p in price_history])
-        
-        # Normalize times to avoid numerical issues
-        times_norm = times - times[0]
-        
-        # Avoid division by zero
-        if np.sum(times_norm**2) == 0:
-            return 0
-        
-        # Calculate slope of best fit line
-        slope = np.sum(times_norm * prices) / np.sum(times_norm**2)
-        
-        # Normalize by average price
-        avg_price = np.mean(prices)
-        if avg_price == 0:
-            return 0
-            
-        normalized_slope = slope / avg_price
-        
-        return normalized_slope

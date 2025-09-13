@@ -733,56 +733,7 @@ class DecentralizedCommuter(Agent):
         base_max *= random.uniform(0.9, 1.1)
         
         return base_max
-    def create_bundle_request(self, segments):
-        """
-        Create a multi-provider bundle request.
-        
-        Args:
-            segments: List of journey segments with origin, destination, time
-            
-        Returns:
-            Bundle request ID
-        """
-        # Generate a unique bundle ID
-        bundle_id = str(uuid.uuid4())
-        
-        # Format segments properly
-        formatted_segments = []
-        for i, segment in enumerate(segments):
-            formatted_segments.append({
-                'segment_id': f"segment_{i}",
-                'origin': segment['origin'],
-                'destination': segment['destination'],
-                'start_time': segment['start_time'],
-                'preferred_mode': segment.get('preferred_mode'),
-                'preferred_provider': segment.get('preferred_provider'),
-                'duration': segment.get('duration', 1800)  # Default 30 minutes
-            })
-        
-        # Create bundle request object
-        bundle_request = {
-            'bundle_id': bundle_id,
-            'commuter_id': self.unique_id,
-            'segments': formatted_segments,
-            'created_at': self.model.schedule.time,
-            'status': 'pending',
-            'components': {}
-        }
-        
-        # Get component offers from providers via blockchain interface
-        component_offers = self.blockchain_interface.create_bundle_components(formatted_segments)
-        
-        # Store offers in bundle request
-        bundle_request['components'] = component_offers
-        
-        # Store bundle request locally
-        if not hasattr(self, 'bundle_requests'):
-            self.bundle_requests = {}
-        self.bundle_requests[bundle_id] = bundle_request
-        
-        self.logger.info(f"Created bundle request {bundle_id} with {len(formatted_segments)} segments")
-        
-        return bundle_id
+    
 
     def evaluate_bundle_options(self, bundle_id):
         """
@@ -1074,172 +1025,172 @@ class DecentralizedCommuter(Agent):
         
         return success
 
-    def evaluate_owned_nfts_for_resale(self):
-        """
-        Evaluate each owned NFT to decide whether to keep or sell.
-        """
-        current_time = self.model.schedule.time
+    # def evaluate_owned_nfts_for_resale(self):
+    #     """
+    #     Evaluate each owned NFT to decide whether to keep or sell.
+    #     """
+    #     current_time = self.model.schedule.time
         
-        # Evaluate each owned NFT
-        for nft_id, nft_details in list(self.owned_nfts.items()):
-            # Skip if service already used or sold
-            if nft_details['status'] != 'active':
-                continue
+    #     # Evaluate each owned NFT
+    #     for nft_id, nft_details in list(self.owned_nfts.items()):
+    #         # Skip if service already used or sold
+    #         if nft_details['status'] != 'active':
+    #             continue
             
-            # Skip if service time has passed
-            if nft_details['service_time'] < current_time:
-                # Mark as expired
-                nft_details['status'] = 'expired'
-                self.logger.info(f"NFT {nft_id} has expired")
-                continue
+    #         # Skip if service time has passed
+    #         if nft_details['service_time'] < current_time:
+    #             # Mark as expired
+    #             nft_details['status'] = 'expired'
+    #             self.logger.info(f"NFT {nft_id} has expired")
+    #             continue
             
-            # Calculate continued utility value (CUV)
-            cuv = self._calculate_continued_utility(nft_id)
+    #         # Calculate continued utility value (CUV)
+    #         cuv = self._calculate_continued_utility(nft_id)
             
-            # Estimate current market value
-            market_value = self._estimate_market_value(nft_id)
+    #         # Estimate current market value
+    #         market_value = self._estimate_market_value(nft_id)
             
-            # Decision threshold (including transaction costs)
-            threshold = 0.2  # 20% gain threshold to account for fees
+    #         # Decision threshold (including transaction costs)
+    #         threshold = 0.2  # 20% gain threshold to account for fees
             
-            self.logger.debug(f"NFT {nft_id} - CUV: {cuv}, Market value: {market_value}")
+    #         self.logger.debug(f"NFT {nft_id} - CUV: {cuv}, Market value: {market_value}")
             
-            # If market value exceeds utility by threshold, list for sale
-            if market_value > cuv * (1 + threshold):
-                # Calculate optimal listing price
-                listing_price = market_value * 0.95  # Slight discount for quicker sale
+    #         # If market value exceeds utility by threshold, list for sale
+    #         if market_value > cuv * (1 + threshold):
+    #             # Calculate optimal listing price
+    #             listing_price = market_value * 0.95  # Slight discount for quicker sale
                 
-                # Decide on dynamic pricing parameters
-                time_to_service = nft_details['service_time'] - current_time
+    #             # Decide on dynamic pricing parameters
+    #             time_to_service = nft_details['service_time'] - current_time
                 
-                # Longer time to service = more aggressive price decay
-                if time_to_service > 24 * 3600:  # More than 24 hours
-                    decay_rate = 0.1  # Faster decay
-                    min_price = cuv * 0.8  # Lower minimum price
-                else:
-                    decay_rate = 0.05  # Slower decay
-                    min_price = cuv * 0.9  # Higher minimum price
+    #             # Longer time to service = more aggressive price decay
+    #             if time_to_service > 24 * 3600:  # More than 24 hours
+    #                 decay_rate = 0.1  # Faster decay
+    #                 min_price = cuv * 0.8  # Lower minimum price
+    #             else:
+    #                 decay_rate = 0.05  # Slower decay
+    #                 min_price = cuv * 0.9  # Higher minimum price
                 
-                # List for sale with dynamic pricing
-                time_parameters = {
-                    'initial_price': listing_price,
-                    'final_price': min_price,
-                    'decay_duration': int(time_to_service * 0.7)  # Use 70% of remaining time
-                }
+    #             # List for sale with dynamic pricing
+    #             time_parameters = {
+    #                 'initial_price': listing_price,
+    #                 'final_price': min_price,
+    #                 'decay_duration': int(time_to_service * 0.7)  # Use 70% of remaining time
+    #             }
                 
-                success = self.blockchain_interface.list_nft_for_sale(nft_id, listing_price, time_parameters)
+    #             success = self.blockchain_interface.list_nft_for_sale(nft_id, listing_price, time_parameters)
                 
-                if success:
-                    # Update NFT status
-                    nft_details['status'] = 'listed'
-                    self.logger.info(f"Listed NFT {nft_id} for sale at {listing_price}")
-                else:
-                    self.logger.warning(f"Failed to list NFT {nft_id} for sale")
+    #             if success:
+    #                 # Update NFT status
+    #                 nft_details['status'] = 'listed'
+    #                 self.logger.info(f"Listed NFT {nft_id} for sale at {listing_price}")
+    #             else:
+    #                 self.logger.warning(f"Failed to list NFT {nft_id} for sale")
 
-    def _calculate_continued_utility(self, nft_id):
-        """
-        Calculate the utility of keeping and using the NFT.
+    # def _calculate_continued_utility(self, nft_id):
+    #     """
+    #     Calculate the utility of keeping and using the NFT.
         
-        Args:
-            nft_id: The NFT ID
+    #     Args:
+    #         nft_id: The NFT ID
             
-        Returns:
-            Utility value
-        """
-        nft = self.owned_nfts[nft_id]
-        current_time = self.model.schedule.time
+    #     Returns:
+    #         Utility value
+    #     """
+    #     nft = self.owned_nfts[nft_id]
+    #     current_time = self.model.schedule.time
         
-        # Base utility calculation
-        base_utility = -1 * (
-            self.utility_coefficients['price'] * nft['price'] +
-            self.utility_coefficients['time'] * nft['duration']
-        )
+    #     # Base utility calculation
+    #     base_utility = -1 * (
+    #         self.utility_coefficients['price'] * nft['price'] +
+    #         self.utility_coefficients['time'] * nft['duration']
+    #     )
         
-        # Adjust for time proximity
-        time_to_service = nft['service_time'] - current_time
+    #     # Adjust for time proximity
+    #     time_to_service = nft['service_time'] - current_time
         
-        # If service time is very close, utility increases (harder to replace)
-        if time_to_service < 3600:  # Within 1 hour
-            urgency_factor = 2.0 - (time_to_service / 3600)  # From 1.0 to 2.0
-            base_utility *= urgency_factor
-        # If somewhat close, still increase utility
-        elif time_to_service < 24 * 3600:  # Within 24 hours
-            urgency_factor = 1.0 + (24 * 3600 - time_to_service) / (24 * 3600)
-            base_utility *= urgency_factor
-        # If very far in future, utility might decrease (easier to replace)
-        elif time_to_service > 7 * 24 * 3600:  # More than 7 days away
-            flexibility_factor = 0.8
-            base_utility *= flexibility_factor
+    #     # If service time is very close, utility increases (harder to replace)
+    #     if time_to_service < 3600:  # Within 1 hour
+    #         urgency_factor = 2.0 - (time_to_service / 3600)  # From 1.0 to 2.0
+    #         base_utility *= urgency_factor
+    #     # If somewhat close, still increase utility
+    #     elif time_to_service < 24 * 3600:  # Within 24 hours
+    #         urgency_factor = 1.0 + (24 * 3600 - time_to_service) / (24 * 3600)
+    #         base_utility *= urgency_factor
+    #     # If very far in future, utility might decrease (easier to replace)
+    #     elif time_to_service > 7 * 24 * 3600:  # More than 7 days away
+    #         flexibility_factor = 0.8
+    #         base_utility *= flexibility_factor
         
-        # Adjust for upcoming needs
-        # Check if we have upcoming requests that might need this service
-        for req_id, req in self.requests.items():
-            if req['status'] == 'active' and req_id != nft.get('request_id'):
-                req_origin = req['origin']
-                req_dest = req['destination']
-                req_time = req['start_time']
+    #     # Adjust for upcoming needs
+    #     # Check if we have upcoming requests that might need this service
+    #     for req_id, req in self.requests.items():
+    #         if req['status'] == 'active' and req_id != nft.get('request_id'):
+    #             req_origin = req['origin']
+    #             req_dest = req['destination']
+    #             req_time = req['start_time']
                 
-                # Check if NFT route is similar
-                route_match = False
-                nft_route = nft.get('route', [])
+    #             # Check if NFT route is similar
+    #             route_match = False
+    #             nft_route = nft.get('route', [])
                 
-                if nft_route:
-                    # Simple check: does route start near request origin and end near request destination?
-                    if (len(nft_route) >= 2 and
-                        self._calculate_distance(nft_route[0], req_origin) < 10 and
-                        self._calculate_distance(nft_route[-1], req_dest) < 10):
-                        route_match = True
+    #             if nft_route:
+    #                 # Simple check: does route start near request origin and end near request destination?
+    #                 if (len(nft_route) >= 2 and
+    #                     self._calculate_distance(nft_route[0], req_origin) < 10 and
+    #                     self._calculate_distance(nft_route[-1], req_dest) < 10):
+    #                     route_match = True
                 
-                # Check if time is close
-                time_match = abs(nft['service_time'] - req_time) < 3600  # Within 1 hour
+    #             # Check if time is close
+    #             time_match = abs(nft['service_time'] - req_time) < 3600  # Within 1 hour
                 
-                if route_match and time_match:
-                    # This NFT could be useful for an upcoming request
-                    base_utility *= 1.5
-                    break
+    #             if route_match and time_match:
+    #                 # This NFT could be useful for an upcoming request
+    #                 base_utility *= 1.5
+    #                 break
         
-        return base_utility
+    #     return base_utility
 
-    def _estimate_market_value(self, nft_id):
-        """
-        Estimate the current market value of an NFT.
+    # def _estimate_market_value(self, nft_id):
+    #     """
+    #     Estimate the current market value of an NFT.
         
-        Args:
-            nft_id: The NFT ID
+    #     Args:
+    #         nft_id: The NFT ID
             
-        Returns:
-            Estimated market value
-        """
-        nft = self.owned_nfts[nft_id]
-        current_time = self.model.schedule.time
+    #     Returns:
+    #         Estimated market value
+    #     """
+    #     nft = self.owned_nfts[nft_id]
+    #     current_time = self.model.schedule.time
         
-        # Original price as baseline
-        base_price = nft['price']
+    #     # Original price as baseline
+    #     base_price = nft['price']
         
-        # Time-based adjustment
-        time_to_service = nft['service_time'] - current_time
+    #     # Time-based adjustment
+    #     time_to_service = nft['service_time'] - current_time
         
-        if time_to_service < 3600:  # Within 1 hour
-            # Price drops rapidly near service time (less than 20% of original value)
-            time_factor = max(0.2, time_to_service / 3600)
-        elif time_to_service < 24 * 3600:  # Within 24 hours
-            # Linear decrease from 80% to 60% value
-            time_factor = 0.6 + (0.2 * time_to_service / (24 * 3600))
-        elif time_to_service < 7 * 24 * 3600:  # Within 7 days
-            # Stable pricing in medium range (80% of value)
-            time_factor = 0.8
-        else:  # Far future
-            # Premium for advance booking (up to 120% of value)
-            time_factor = min(1.2, 0.8 + (time_to_service - 7 * 24 * 3600) / (30 * 24 * 3600))
+    #     if time_to_service < 3600:  # Within 1 hour
+    #         # Price drops rapidly near service time (less than 20% of original value)
+    #         time_factor = max(0.2, time_to_service / 3600)
+    #     elif time_to_service < 24 * 3600:  # Within 24 hours
+    #         # Linear decrease from 80% to 60% value
+    #         time_factor = 0.6 + (0.2 * time_to_service / (24 * 3600))
+    #     elif time_to_service < 7 * 24 * 3600:  # Within 7 days
+    #         # Stable pricing in medium range (80% of value)
+    #         time_factor = 0.8
+    #     else:  # Far future
+    #         # Premium for advance booking (up to 120% of value)
+    #         time_factor = min(1.2, 0.8 + (time_to_service - 7 * 24 * 3600) / (30 * 24 * 3600))
         
-        # Market demand adjustment based on similar recent transactions
-        # For simplicity, use a random factor, but in a real implementation,
-        # would check actual market demand
-        demand_factor = random.uniform(0.9, 1.1)
+    #     # Market demand adjustment based on similar recent transactions
+    #     # For simplicity, use a random factor, but in a real implementation,
+    #     # would check actual market demand
+    #     demand_factor = random.uniform(0.9, 1.1)
         
-        estimated_value = base_price * time_factor * demand_factor
+    #     estimated_value = base_price * time_factor * demand_factor
         
-        return estimated_value
+    #     return estimated_value
 
     def update(self):
         """
@@ -1252,13 +1203,10 @@ class DecentralizedCommuter(Agent):
         self._update_active_trips()
         
         # Evaluate owned NFTs for potential resale
-        self.evaluate_owned_nfts_for_resale()
+        # self.evaluate_owned_nfts_for_resale()
         
         # Check pending requests and take action if needed
-        self._process_pending_requests()
-        
-        # Update learning parameters based on outcomes
-        self._update_learning_parameters()
+        self._process_pending_requests()        
         
         # Generate new trips if needed (optional, based on model design)
         self._generate_new_trips()
@@ -1467,95 +1415,7 @@ class DecentralizedCommuter(Agent):
                         # Remove from pending for now, will check again later
                         self.pending_requests.remove(request_id)
 
-    def _update_learning_parameters(self):
-        """
-        Update learning parameters based on outcomes.
-        """
-        # Only update after completing some trips (e.g., 5+)
-        if len(self.trip_history) < 5:
-            return
-        
-        # Count successful outcomes by strategy
-        strategy_successes = {strategy: 0 for strategy in self.strategy_weights}
-        strategy_attempts = {strategy: 0.1 for strategy in self.strategy_weights}  # Avoid division by zero
-        
-        # Count from recent history (last 10 trips or all if less)
-        recent_trips = self.trip_history[-10:]
-        
-        for trip in recent_trips:
-            request = trip['request']
-            if 'selected_strategy' in request:
-                strategy = request['selected_strategy']
-                if strategy in strategy_successes:
-                    satisfaction = trip.get('satisfaction', 0)
-                    
-                    # Count as success if satisfaction is positive
-                    if satisfaction > 0:
-                        strategy_successes[strategy] += 1
-                    
-                    strategy_attempts[strategy] += 1
-        
-        # Update weights based on success rates
-        total_weight = 0
-        for strategy in self.strategy_weights:
-            if strategy_attempts[strategy] > 0:
-                success_rate = strategy_successes[strategy] / strategy_attempts[strategy]
-                
-                # Apply softmax-like update
-                self.strategy_weights[strategy] = math.exp(success_rate * 2)
-                total_weight += self.strategy_weights[strategy]
-        
-        # Normalize weights
-        if total_weight > 0:
-            for strategy in self.strategy_weights:
-                self.strategy_weights[strategy] /= total_weight
-            
-            self.logger.debug(f"Updated strategy weights: {self.strategy_weights}")
-        
-        # Also update mode preferences based on trip history
-        self._update_mode_preferences()
-
-    def _update_mode_preferences(self):
-        """
-        Update mode preferences based on trip history.
-        """
-        # Count satisfaction by mode
-        mode_satisfaction = {}
-        mode_counts = {}
-        
-        # Use recent trip history
-        recent_trips = self.trip_history[-20:]
-        
-        for trip in recent_trips:
-            mode = trip['option'].get('mode', 'car')
-            satisfaction = trip.get('satisfaction', 0)
-            
-            if mode not in mode_satisfaction:
-                mode_satisfaction[mode] = 0
-                mode_counts[mode] = 0
-                
-            mode_satisfaction[mode] += satisfaction
-            mode_counts[mode] += 1
-        
-        # Calculate average satisfaction by mode
-        avg_satisfaction = {}
-        for mode in mode_counts:
-            if mode_counts[mode] > 0:
-                avg_satisfaction[mode] = mode_satisfaction[mode] / mode_counts[mode]
-        
-        # Update mode preferences (small adjustment)
-        for mode in avg_satisfaction:
-            if mode in self.mode_preference:
-                # Map satisfaction [-1, 1] to preference update [-0.05, 0.05]
-                preference_update = avg_satisfaction[mode] * 0.05
-                
-                # Apply update with high damping (95% old, 5% new)
-                self.mode_preference[mode] += preference_update
-        
-        # Normalize preferences
-        total = sum(self.mode_preference.values())
-        for mode in self.mode_preference:
-            self.mode_preference[mode] /= total
+    
 
     def _generate_new_trips(self):
         """
@@ -1623,143 +1483,3 @@ class DecentralizedCommuter(Agent):
         # If not on a trip, return home location
         return self.location
     
-    def check_amm_for_route(self, origin, destination, start_time):
-        """
-        Check the AMM for service options on a route.
-        
-        Args:
-            origin: Origin coordinates
-            destination: Destination coordinates
-            start_time: Desired start time
-            
-        Returns:
-            AMM quote if available, None otherwise
-        """
-        # Skip if no AMM in model
-        if not hasattr(self.model, 'amm'):
-            return None
-            
-        # Calculate expected price based on distance
-        distance = self._calculate_distance(origin, destination)
-        expected_price = distance * 0.5  # Basic price calculation
-        
-        # Add maximum price the commuter is willing to pay
-        max_price = expected_price * (1 + self.price_sensitivity)
-        
-        # Convert to service tokens for AMM
-        # Assume 1 service token = 1 unit of service
-        service_amount = 1  # Standard service amount
-        
-        # Get quote from AMM
-        quote = self.model.amm.get_quote(origin, destination, max_price, is_buy=True)
-        
-        if quote and quote['price'] <= max_price:
-            self.logger.info(f"Found AMM quote for route {origin} to {destination} at price {quote['price']}")
-            return quote
-            
-        return None
-
-    def buy_service_from_amm(self, quote):
-        """
-        Buy a mobility service from the AMM.
-        
-        Args:
-            quote: AMM quote
-            
-        Returns:
-            Success status and details
-        """
-        if not hasattr(self.model, 'amm'):
-            return False, None
-            
-        # Execute the swap
-        success, swap_details = self.model.amm.execute_swap(quote, self.unique_id)
-        
-        if success:
-            self.logger.info(f"Purchased service from AMM: {swap_details}")
-            
-            # If NFT was created, add to owned NFTs
-            if swap_details['nft_id']:
-                self.owned_nfts[swap_details['nft_id']] = {
-                    'price': swap_details['input_amount'],
-                    'service_time': self.model.schedule.time + 3600,  # 1 hour from now
-                    'duration': 1800,  # 30 minutes
-                    'provider_id': 0,  # AMM pool
-                    'mode': 'amm',
-                    'route': [list(quote['origin']), list(quote['destination'])],
-                    'status': 'active',
-                    'purchase_time': self.model.schedule.time
-                }
-                
-                # Add to active trips
-                self.active_trips[swap_details['nft_id']] = {
-                    'request': {
-                        'origin': list(quote['origin']),
-                        'destination': list(quote['destination']),
-                        'start_time': self.model.schedule.time + 3600
-                    },
-                    'option': {
-                        'type': 'amm',
-                        'price': swap_details['input_amount'],
-                        'mode': 'amm'
-                    },
-                    'start_time': self.model.schedule.time + 3600,
-                    'status': 'booked'
-                }
-                
-            return True, swap_details
-            
-        return False, None
-
-    def sell_service_to_amm(self, nft_id):
-        """
-        Sell an owned NFT to the AMM.
-        
-        Args:
-            nft_id: NFT ID to sell
-            
-        Returns:
-            Success status and details
-        """
-        if not hasattr(self.model, 'amm') or nft_id not in self.owned_nfts:
-            return False, None
-            
-        nft_info = self.owned_nfts[nft_id]
-        
-        # Skip if NFT is not active
-        if nft_info['status'] != 'active':
-            return False, None
-            
-        # Get route information
-        origin = nft_info['route'][0]
-        destination = nft_info['route'][1]
-        
-        # Get quote for selling 1 service token
-        quote = self.model.amm.get_quote(origin, destination, 1, is_buy=False)
-        
-        if not quote:
-            return False, None
-            
-        # Check if price is acceptable (at least 70% of purchase price)
-        min_acceptable = nft_info['price'] * 0.7
-        
-        if quote['output_amount'] < min_acceptable:
-            self.logger.info(f"AMM sell price too low: {quote['output_amount']} < {min_acceptable}")
-            return False, None
-            
-        # Execute the swap
-        success, swap_details = self.model.amm.execute_swap(quote, self.unique_id)
-        
-        if success:
-            self.logger.info(f"Sold NFT {nft_id} to AMM: {swap_details}")
-            
-            # Update NFT status
-            self.owned_nfts[nft_id]['status'] = 'sold'
-            
-            # Remove from active trips if present
-            if nft_id in self.active_trips:
-                self.active_trips.pop(nft_id)
-                
-            return True, swap_details
-            
-        return False, None
