@@ -5,7 +5,7 @@ import uuid
 import logging
 import random
 from datetime import datetime, timedelta
-
+from abm.utils.blockchain_interface import BlockchainInterface
 class DecentralizedCommuter(Agent):
     """
     A commuter agent with blockchain identity capable of requesting, purchasing, 
@@ -82,7 +82,7 @@ class DecentralizedCommuter(Agent):
         # Set up logging
         self.logger = logging.getLogger(f"Commuter-{unique_id}")
         self.logger.setLevel(logging.INFO)
-        
+        self.marketplace = blockchain_interface
         # Register with blockchain
         self._register_with_blockchain()
 
@@ -510,6 +510,23 @@ class DecentralizedCommuter(Agent):
         self.logger.info(f"Request {request_id} created with blockchain result: {result}")
         
         return request_id
+
+    def step(self):
+        """Main step function - simplified flow"""
+        # Register with marketplace if not registered
+        if not hasattr(self, 'registered'):
+            success, address = self.marketplace.register_commuter(self)
+            if success:
+                self.registered = True
+                self.address = address
+        
+        # Create a request if we don't have an active one
+        if not self.active_request_id and random.random() < 0.1:  # 10% chance
+            self.create_travel_request()
+        
+        # Check status of active request
+        if self.active_request_id:
+            self.check_request_status()
 
     def evaluate_marketplace_options(self, request_id):
         """

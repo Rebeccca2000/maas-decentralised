@@ -166,7 +166,21 @@ contract MaaSRequest {
     }
     
     // ================ Core Request Functions ================
-    
+    // Add to MaaSRequest.sol
+    mapping(uint256 => string) public requestHashes;  // Add to state variables
+
+    function createRequestWithHash(
+        uint256 requestId,
+        uint256 commuterId,
+        string memory contentHash,
+        uint256 timestamp
+    ) public returns (bool) {
+        requestHashes[requestId] = contentHash;
+        // Emit event
+        emit RequestCreated(requestId, commuterId, new uint256[](0), new uint256[](0), 
+                        timestamp, Purpose.Work, Status.Active, "");
+        return true;
+    }
     /**
      * @dev Create a new travel request
      * @param requestId Unique request ID
@@ -730,3 +744,4 @@ contract MaaSRequest {
         return activeRequestCount;
     }
 }
+
