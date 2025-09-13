@@ -63,7 +63,7 @@ contract MaaSAuction {
         offersByRequest[requestId].push(Offer({
             providerId: providerId,
             contentHash: contentHash,
-            submittedBy: tx.origin
+            submittedBy: msg.sender
         }));
         offerId = offersByRequest[requestId].length - 1;
 

@@ -5,7 +5,7 @@ import uuid
 import logging
 import random
 from datetime import datetime, timedelta
-from abm.utils.blockchain_interface import BlockchainInterface
+
 class DecentralizedCommuter(Agent):
     """
     A commuter agent with blockchain identity capable of requesting, purchasing, 
@@ -58,6 +58,9 @@ class DecentralizedCommuter(Agent):
         self.active_trips = {}  # Currently active trips
         self.trip_history = []  # History of completed trips
         self.transaction_history = []  # History of blockchain transactions
+        # Request/trip tracking
+        self.active_request_id = None
+        self.completed_trips = 0
         
         # Decision-making parameters
         self.utility_coefficients = self._initialize_utility_coefficients()
@@ -449,8 +452,8 @@ class DecentralizedCommuter(Agent):
             })
             
             return None  # Return None to indicate request is queued
-        # Generate a unique request ID
-        request_id = str(uuid.uuid4())
+        # Generate a unique numeric request ID (64-bit)
+        request_id = int(uuid.uuid4().int & (2**64 - 1))
         
         # Get personal requirements
         personal_reqs = self.get_personal_requirements()
@@ -527,6 +530,32 @@ class DecentralizedCommuter(Agent):
         # Check status of active request
         if self.active_request_id:
             self.check_request_status()
+
+    def create_travel_request(self):
+        """Create a simple travel request using current location and a random destination."""
+        origin = list(self.location) if isinstance(self.location, (list, tuple)) else [0, 0]
+        # Random destination within a reasonable range
+        dx = random.randint(-5, 5)
+        dy = random.randint(-5, 5)
+        destination = [origin[0] + dx, origin[1] + dy]
+        # Use simulation time to stay consistent with utility computations
+        start_time = int(self.model.schedule.time + random.randint(1, 10))
+        req_id = self.create_request(origin, destination, start_time, travel_purpose='work')
+        if req_id:
+            self.active_request_id = req_id
+        return req_id
+
+    def check_request_status(self):
+        """Check marketplace for match on the active request and finalize locally."""
+        rid = self.active_request_id
+        if not rid:
+            return
+        match = self.marketplace.marketplace_db['matches'].get(rid)
+        if match:
+            # Consider the trip completed for this simplified flow
+            self.completed_trips += 1
+            # Clear active request
+            self.active_request_id = None
 
 
     def calculate_option_utility(self, option, request_id):

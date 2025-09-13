@@ -1,4 +1,4 @@
-// scripts/deploy.js (Ethers v5 compatible)
+// scripts/deploy.js  (Ethers v5)
 const fs = require("fs");
 const path = require("path");
 const { ethers } = require("hardhat");
@@ -28,12 +28,11 @@ async function main() {
   await facade.deployed();
 
   // 5) WIRE DIRECTLY AS OWNER (KISS)
-  // These calls must originate from the owner (deployer), not from the Facade.
-  await (await request.setMarketplaceAddress(facade.address, { gasLimit: 5_000_000 })).wait();
-  await (await auction.setMarketplaceAddress(facade.address, { gasLimit: 5_000_000 })).wait();
+  await (await request.setMarketplaceAddress(facade.address)).wait();
+  await (await auction.setMarketplaceAddress(facade.address)).wait();
 
   // 6) Set marketplace API on Facade (owner-only)
-  await (await facade.setMarketplaceAPI(deployer.address, { gasLimit: 2_000_000 })).wait();
+  await (await facade.setMarketplaceAPI(deployer.address)).wait();
 
   // 7) Save addresses
   const out = {
@@ -52,7 +51,4 @@ async function main() {
   console.log("Deployed:", out);
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+main().catch((e) => { console.error(e); process.exit(1); });

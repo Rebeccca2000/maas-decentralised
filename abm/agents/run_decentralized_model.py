@@ -9,11 +9,11 @@ import logging
 from mesa import Model
 from mesa.time import RandomActivation
 from mesa.space import MultiGrid
+import sys, os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-# Add parent directory to path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils.blockchain_interface import BlockchainInterface
+from abm.utils.blockchain_interface import BlockchainInterface
 from decentralized_commuter import DecentralizedCommuter
 from decentralized_provider import DecentralizedProvider
 
@@ -36,7 +36,7 @@ class SimplifiedMaaSModel(Model):
         
         # Initialize marketplace API (formerly blockchain_interface)
         self.marketplace = BlockchainInterface(
-            config_path="../../blockchain_config.json",
+            config_file="blockchain_config.json",
             async_mode=True
         )
         
@@ -58,14 +58,18 @@ class SimplifiedMaaSModel(Model):
             y = random.randrange(height)
             
             # Create agent
+            has_disability = random.random() < 0.1
+            tech_access = random.random() < 0.9
             commuter = DecentralizedCommuter(
                 unique_id=i,
                 model=self,
-                pos=(x, y),
+                location=(x, y),
                 age=age,
                 income_level=income,
-                payment_scheme=payment,
+                has_disability=has_disability,
+                tech_access=tech_access,
                 health_status=health,
+                payment_scheme=payment,
                 blockchain_interface=self.marketplace
             )
             
@@ -131,7 +135,7 @@ class SimplifiedMaaSModel(Model):
             # Check if request has offers
             offers = self.marketplace.get_request_offers(request_id)
             
-            if len(offers) >= 2:  # Wait for at least 2 offers
+            if len(offers) >= 1:  # Proceed when at least 1 offer
                 # Run matching
                 success, match = self.marketplace.run_marketplace_matching(request_id)
                 
@@ -148,7 +152,7 @@ class SimplifiedMaaSModel(Model):
         
         # Count completed trips
         for agent in self.schedule.agents:
-            if isinstance(agent, DecentralizedCommuter):
+            if isinstance(agent, DecentralizedCommuter) and hasattr(agent, 'completed_trips'):
                 self.total_completed += agent.completed_trips
                 agent.completed_trips = 0  # Reset counter
 

@@ -55,7 +55,7 @@ contract MaaSRequest {
             commuterId: commuterId,
             contentHash: contentHash,
             status: Status.Created,
-            createdBy: tx.origin
+            createdBy: msg.sender
         });
 
         requestsByCommuter[commuterId].push(requestId);

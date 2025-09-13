@@ -3,9 +3,9 @@ from mesa.space import MultiGrid
 from mesa.time import RandomActivation
 from mesa.datacollection import DataCollector
 
-from decentralized_commuter import DecentralizedCommuter
-from decentralized_provider import DecentralizedProvider
-from nft_marketplace import NFTMarketplace
+from agents.decentralized_commuter import DecentralizedCommuter
+from agents.decentralized_provider import DecentralizedProvider
+from agents.nft_marketplace import NFTMarketplace
 
 import sys
 import os

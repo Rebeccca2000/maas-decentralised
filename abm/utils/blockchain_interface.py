@@ -81,6 +81,7 @@ class BlockchainInterface:
         self.tx_queue = deque()
         self.pending_transactions = {}
         self.tx_nonce_map = {}  # To track nonces for each account
+        self.tx_count = 0
         
         # State caching
         self.state_cache = {
@@ -147,6 +148,29 @@ class BlockchainInterface:
         """Start background tasks for async processing"""
         self.thread_pool.submit(self._transaction_processor)
         self.thread_pool.submit(self._periodic_cache_update)
+
+    def _transaction_processor(self):
+        """Continuously process queued transactions in batches."""
+        try:
+            while getattr(self, 'running', False):
+                try:
+                    self._process_transaction_batch()
+                except Exception as e:
+                    self.logger.debug(f"Transaction processor error: {e}")
+                time.sleep(0.5)
+        except Exception:
+            # Ensure background thread never crashes the app
+            pass
+
+    def _periodic_cache_update(self):
+        """Periodic placeholder for cache updates (no-op for now)."""
+        try:
+            while getattr(self, 'running', False):
+                # Could refresh derived stats or TTL-based invalidation
+                self.state_cache['last_updated']['marketplace'] = time.time()
+                time.sleep(5)
+        except Exception:
+            pass
         
     def _load_config(self, config_file):
         """Load blockchain configuration"""
@@ -597,7 +621,15 @@ class BlockchainInterface:
         return self.run_marketplace_matching(request_id)
     
     # ================ REGISTRATION FUNCTIONS (Keep as is) ================
-    
+
+    def is_commuter_registered(self, commuter_id):
+        """Return True if a commuter account exists."""
+        return commuter_id in self.accounts
+
+    def is_provider_registered(self, provider_id):
+        """Return True if a provider account exists."""
+        return provider_id in self.accounts
+
     def register_commuter(self, commuter_agent):
         """Register commuter - stores profile in marketplace DB"""
         try:
